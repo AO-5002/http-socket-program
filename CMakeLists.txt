@@ -3,4 +3,11 @@ project(http_socket_program C)
 
 set(CMAKE_C_STANDARD 23)
 
-add_executable(http_socket_program main.c)
+add_executable(client
+        client.c
+        )
+
+add_executable(server
+        server.c
+        )
+
