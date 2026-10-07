@@ -15,50 +15,88 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include "transport_info.h"
+#include <unistd.h>
 
 // Forward-Functions Defined
 
-bool server_validate_username(char *username);
-bool server_validate_password(char *password);
+// Server Validation
+void server_validate_username(char *username);
+void server_validate_password(char *password);
+
+// Server Related Setup
+int create_server_socket();
+void bind_server(int server_socket_fd, struct sockaddr_in addr);
+void start_listening(int server_socket_fd);
+int accept_client(int server_socket_fd, struct sockaddr_in addr, const socklen_t *addr_len);
+void close_server(int fd);
+
+// Main
 
 int main() {
 
+    // (Source) Server Address
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+    addr.sin_family = DOMAIN_PROTOCOL;
+    addr.sin_port = htons(SERVER_PORT);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    // Initial-TCP Setup
+    const int server_socket_fd = create_server_socket();
+    bind_server(server_socket_fd, addr);
+    start_listening(server_socket_fd);
+
+
+    // Receive Client Messages
+    int client_socket_fd = accept_client(server_socket_fd, addr, &addr_len);
+    close_server(server_socket_fd);
+}
+
+int create_server_socket() {
+    int fd = socket(DOMAIN_PROTOCOL, SOCK_STREAM, 0);
+    if (fd == -1) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
     int opt = 1;
-    int server_socket_fd;
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof opt) == -1) {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
 
-    if ((server_socket_fd = socket(DOMAIN_PROTOCOL, SOCK_STREAM, 0)) != -1) {
+    return fd;
+}
 
-        // Restart the porting
-        if (setsockopt(server_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt,
-               sizeof(opt))) {
-            perror("setsockopt");
-            exit(EXIT_FAILURE);
-               }
+void bind_server(const int server_socket_fd, const struct sockaddr_in addr) {
+    if (bind(server_socket_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        perror("bind");
+        exit(EXIT_FAILURE);
+    }
+}
 
-        // (Source) Server Address
-        struct sockaddr_in addr;
-        addr.sin_family = DOMAIN_PROTOCOL;
-        addr.sin_port = htons(SERVER_PORT);
-        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+void start_listening(const int server_socket_fd) {
+    if (listen(server_socket_fd, BACKLOG) == -1) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+}
 
-        if (bind(server_socket_fd, (struct sockaddr *) &addr, sizeof(addr)) != -1) {
+int accept_client(int server_socket_fd, const struct sockaddr_in addr, const socklen_t *addr_len) {
+    const int fd = accept(server_socket_fd, (struct sockaddr *) &addr, (socklen_t*) &addr_len);
+    if (fd == -1) {
+        perror("accept");
+        exit(EXIT_FAILURE);
+    }
 
-            // Listen for incoming connections
+    printf("Client connected\n");
+    return fd;
+}
 
-            if (listen(server_socket_fd, BACKLOG) != -1) {
-                printf("Server listening on port %d\n", SERVER_PORT);
-
-                // Accept client connections
-
-                int client_socket_fd;
-                socklen_t addr_len = sizeof(addr);
-                if ((client_socket_fd = accept(server_socket_fd, (struct sockaddr *)&addr, &addr_len)) != -1) {
-                    printf("Client connected: %d\n", client_socket_fd);
-                }
-                else printf("Error accepting client connection. (%s)", strerror(errno));
-            } else printf("Error listening on server socket. (%s)", strerror(errno));
-        } else printf("Error binding server socket. (%s)", strerror(errno));
-    } else printf("Error creating server socket. (%s)", strerror(errno));
-
-    return 0;
+void close_server(const int fd) {
+    int status = close(fd);
+    if (status == -1) {
+        perror("close");
+        exit(EXIT_FAILURE);
+    }
 }

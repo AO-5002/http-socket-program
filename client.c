@@ -9,68 +9,83 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/errno.h>
 #include "transport_info.h"
+#include <unistd.h>
 
-void register_user(char **username);
-bool validate_username(char *username);
-bool validate_password(char *password);
+int create_client_socket();
+void connect_to_server(int client_socket_fd, struct sockaddr_in dest_addr, socklen_t dest_addr_len);
+void close_client(int fd);
+
 
 int main() {
 
-    int client_socket_fd;
-    if ((client_socket_fd = socket(DOMAIN_PROTOCOL, SOCK_STREAM, 0)) != -1) {
-        printf("Successfully created client socket. \n");
+    // User gets registered
 
-        // (Source) Client Address
-        struct sockaddr_in addr;
-        addr.sin_family = DOMAIN_PROTOCOL;
-        addr.sin_port = htons(CLIENT_PORT);
-        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    char username[100];
+    char password[100];
+    char port[4];
 
-        // (Destination) Server Address
-        struct sockaddr_in dest_addr = {0};
-        dest_addr.sin_family = DOMAIN_PROTOCOL;
-        dest_addr.sin_port = htons(SERVER_PORT);
-        dest_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    printf("Enter username: ");
+    fgets(username, 100, stdin);
 
-        // Connect to the server socket
-        int dest_addr_len = sizeof(dest_addr);
-        if (connect(client_socket_fd, (struct sockaddr*) &dest_addr, dest_addr_len) != -1) {
-            printf("Successfully connected to server socket.\n");
-        }
-        else printf("Error connecting to server socket. (%s)", strerror(errno));
+    printf("Enter password: ");
+    fgets(password, 100, stdin);
+
+    printf("Enter server port: ");
+    fgets(port, 4, stdin);
+
+
+    // Establish TCP-Client & send username & password
+
+    // (Destination) Server Address
+    struct sockaddr_in dest_addr = {0};
+    dest_addr.sin_family = DOMAIN_PROTOCOL;
+    dest_addr.sin_port = htons(SERVER_PORT);
+    dest_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+    int client_socket_fd = create_client_socket();
+    connect_to_server(client_socket_fd, dest_addr, sizeof(dest_addr));
+
+    close_client(client_socket_fd);
+}
+
+void send_message(char *message, int client_socket_fd) {
+    ssize_t status = send(client_socket_fd, message, strlen(message), 0);
+    if (status == -1) {
+        perror("send");
+        exit(EXIT_FAILURE);
     }
-    else printf("Error creating client socket. (%s)", strerror(errno));
-    return 0;
 }
 
-// User Validation
-void register_user(char **username) {
-    char username_input[MAX_USERNAME_LENGTH], password_input[MAX_PASSWORD_LENGTH];
+int create_client_socket() {
+    int fd = socket(DOMAIN_PROTOCOL, SOCK_STREAM, 0);
+    if (fd == -1) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
 
-    // Get user inputs & validate
-
-    do {
-        printf("Username: ");
-        fgets(username_input, MAX_USERNAME_LENGTH, stdin);
-        printf("Password: ");
-        fgets(password_input, MAX_PASSWORD_LENGTH, stdin);
-    } while (!validate_username(username_input) || !validate_password(password_input));
-
-    // Register user
-
-    *username = username_input;
-    printf("User registered successfully!\n");
+    return fd;
 }
 
-bool validate_username(char *username) {
-    return true;
+void connect_to_server(int client_socket_fd, struct sockaddr_in dest_addr, const socklen_t dest_addr_len) {
+    int status = connect(client_socket_fd, (struct sockaddr*) &dest_addr, dest_addr_len);
+    if (status == -1) {
+        perror("connect");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Connected to server\n");
 }
 
-bool validate_password(char *password) {
-    return false;
+void close_client(int fd) {
+    int status = close(fd);
+    if (status == -1) {
+        perror("close");
+        exit(EXIT_FAILURE);
+    }
 }
