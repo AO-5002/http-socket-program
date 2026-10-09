@@ -1,56 +1,16 @@
 //
-// Created by Andres Ortiz Osorio on 10/6/26.
+// Created by Andres Ortiz Osorio on 10/8/26.
 //
 
-/*
- * Server maintains a list of connected users
- * Receives messages from client, and resends messages to other clients
- * Simple protocol to register users
-*/
-
 #include <sys/socket.h>
-#include <sys/errno.h>
+#include "server_setup.h"
 #include <stdio.h>
-#include <string.h>
 #include <netinet/in.h>
 #include <stdlib.h>
-#include "transport_info.h"
+#include "../transport_info.h"
 #include <unistd.h>
 
-// Forward-Functions Defined
-
-// Server Validation
-void server_validate_username(char *username);
-void server_validate_password(char *password);
-
-// Server Related Setup
-int create_server_socket();
-void bind_server(int server_socket_fd, struct sockaddr_in addr);
-void start_listening(int server_socket_fd);
-int accept_client(int server_socket_fd, struct sockaddr_in addr, const socklen_t *addr_len);
-void close_server(int fd);
-
-// Main
-
-int main() {
-
-    // (Source) Server Address
-    struct sockaddr_in addr;
-    socklen_t addr_len = sizeof(addr);
-    addr.sin_family = DOMAIN_PROTOCOL;
-    addr.sin_port = htons(SERVER_PORT);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    // Initial-TCP Setup
-    const int server_socket_fd = create_server_socket();
-    bind_server(server_socket_fd, addr);
-    start_listening(server_socket_fd);
-
-
-    // Receive Client Messages
-    int client_socket_fd = accept_client(server_socket_fd, addr, &addr_len);
-    close_server(server_socket_fd);
-}
+// Server-Connection Functions
 
 int create_server_socket() {
     int fd = socket(DOMAIN_PROTOCOL, SOCK_STREAM, 0);

@@ -15,6 +15,7 @@
 
 // Transport Layer MACROS
 #define DOMAIN_PROTOCOL AF_INET
+#define MAX_USER_CONNECTIONS 10
 #define SERVER_PORT 8080
 #define CLIENT_PORT 3000
 #define BACKLOG 10
