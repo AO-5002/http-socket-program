@@ -49,12 +49,13 @@ MSG_TYPE get_type(const char *message) {
 MSG_PROTOCOL parse_message(char *message) {
 
     // Parse the type and content from the message.
-
-    char type[4];
-    for (int i = 0; i < 4; i++) {
-        if (message[i] == ' ') { message = message + i + 1; break; }
+    char type[5] = {0};
+    int i = 0;
+    for (; i < 4; i++) {
+        if (message[i] == ' ' || message[i] == '\0') break;
         type[i] = message[i];
     }
 
+    message += message[i] == ' ' ? i + 1 : i;
     return (MSG_PROTOCOL) { .type = get_type(type), .message = message };
 }

@@ -12,6 +12,8 @@
 #include "../transport_info.h"
 #include "server_setup.h"
 
+void handle_message(char *read_buffer);
+
 // Main
 
 int main() {
@@ -32,16 +34,11 @@ int main() {
     int client_socket_fd = accept_client(server_socket_fd, addr, &addr_len);
     printf("Client connected\n");
     while (1) {
+
         char read_buffer[MAX_MESSAGE_LENGTH];
         const ssize_t n = recv(client_socket_fd, read_buffer, 100, 0);
 
-        if (n > 0) {
-            printf("Message received: %s\n", read_buffer);
-            if (strcmp(read_buffer, "exit") == 0) {
-                send_message("exit", client_socket_fd);
-                break;
-            }
-        }
+        if (n > 0) handle_message(read_buffer);
         else if (n == 0) {
             printf("Client disconnected\n");
             break;
@@ -53,4 +50,16 @@ int main() {
     }
 
     close_server(server_socket_fd);
+}
+
+void handle_message(char *read_buffer) {
+
+    // Parse the message of its msg-type and contents.
+    const MSG_PROTOCOL msg = parse_message(read_buffer);
+    printf("Message received: %s\n", msg.message);
+
+    if (msg.type == EXIT) {
+        printf("Client disconnected\n");
+        exit(EXIT_SUCCESS);
+    }
 }

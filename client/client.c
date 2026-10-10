@@ -35,7 +35,7 @@ int main() {
     dest_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
     // Prompt User
-    prompt_user(username, port);
+    // prompt_user(username, port);
 
     // Establish TCP-Client
 
@@ -43,7 +43,7 @@ int main() {
     connect_to_server(client_socket_fd, dest_addr, sizeof(dest_addr));
 
     // Register User
-    register_user(username, port, client_socket_fd);
+    // register_user(username, port, client_socket_fd);
 
     // Chatroom
     while (1) {
@@ -78,13 +78,13 @@ void prompt_user(char *username, char *port) {
     port[strcspn(port, "\n")] = '\0';
 }
 
-void register_user(char *username, char *port, int client_socket_fd) {
-    while (1) {
-
-        // Send user-registration information to the server to process.
-
-        send_message(username, client_socket_fd);
-    }
-}
+// void register_user(char *username, char *port, int client_socket_fd) {
+//     while (1) {
+//
+//         // Send user-registration information to the server to process.
+//
+//         send_message(username, client_socket_fd);
+//     }
+// }
 
 

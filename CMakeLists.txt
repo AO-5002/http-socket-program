@@ -21,10 +21,10 @@ add_executable(server
         common/protocol.h
 )
 
-add_executable(test test/test_server_validation.c server/server_validation.c
+add_executable(test test/test-cases/test_server_validation.c server/server_validation.c
         common/protocol.c
         common/protocol.h
-        test/test_protocol.c
+        test/test-cases/test_protocol.c
         test/test_main.c
-        test/test_utils.c
+        test/utils/test_utils.c
 )
