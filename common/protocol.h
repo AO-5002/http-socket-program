@@ -4,6 +4,7 @@
 
 #ifndef HTTP_SOCKET_PROGRAM_PROTOCOL_H
 #define HTTP_SOCKET_PROGRAM_PROTOCOL_H
+#include <sys/_types/_ssize_t.h>
 
 typedef enum { REG, ACK, MESG, PMSG, ERR, EXIT, UNKOWN} MSG_TYPE;
 typedef struct {
@@ -11,8 +12,9 @@ typedef struct {
     char *message;
 } MSG_PROTOCOL;
 
-void send_message(const char *message, int client_socket_fd);
-void receive_message(char* read_buffer, int client_socket_fd);
+void send_message(const char *message, int origin_fd, int dest_fd);
+ssize_t receive_message(char* read_buffer, int client_socket_fd);
+void broadcast_message(const char *message, int origin_fd, char *connected_clients[]);
 MSG_PROTOCOL parse_message(char *message);
 
 #endif //HTTP_SOCKET_PROGRAM_PROTOCOL_H

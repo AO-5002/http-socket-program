@@ -10,30 +10,40 @@
 #include <sys/socket.h>
 #include "../transport_info.h"
 
-void send_message(const char *message, int client_socket_fd) {
-    const ssize_t n = send(client_socket_fd, message, MAX_MESSAGE_LENGTH, 0);
+void send_message(const char *message, int origin_fd, int dest_fd) {
+    if (origin_fd == dest_fd) return;
+    const ssize_t n = send(dest_fd, message, MAX_MESSAGE_LENGTH, 0);
     if (n == -1) {
-        perror("send");
+        perror("send_message");
         exit(EXIT_FAILURE);
     }
 }
 
-void receive_message(char* read_buffer, const int client_socket_fd) {
-    const ssize_t n = recv(client_socket_fd, read_buffer, sizeof(read_buffer) - 1, 0);
-    if (n > 0) {
-        printf("Server Response: %s\n", read_buffer);
-        if (strcmp(read_buffer, "exit") == 0) {
-            exit(EXIT_SUCCESS);
+void broadcast_message(const char *message, const int origin_fd, char *connected_clients[]) {
+    for (int fd = 0; fd < FD_SETSIZE; fd++) {
+        if (connected_clients[fd] != NULL && fd != origin_fd) {
+            const ssize_t n = send(fd, message, strlen(message), 0);
+            if (n == -1) {
+                perror("send");
+                exit(EXIT_FAILURE);
+            }
         }
     }
-    else if (n == 0) {
+}
+
+ssize_t receive_message(char* read_buffer, const int fd) {
+    const ssize_t n = recv(fd, read_buffer, MAX_MESSAGE_LENGTH - 1, 0);
+    if (n < 0) {
+        perror("receive_message");
+        exit(EXIT_FAILURE);
+    }
+
+    if (n == 0) {
         printf("Server disconnected\n");
         exit(EXIT_SUCCESS);
     }
-    else {
-        perror("recv");
-        exit(EXIT_FAILURE);
-    }
+
+    return n;
 }
 
 MSG_TYPE get_type(const char *message) {

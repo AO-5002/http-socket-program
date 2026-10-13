@@ -4,7 +4,19 @@
 
 #include "server_validation.h"
 
+#include <stdio.h>
 #include <string.h>
+
+int register_new_user(const char *username, char *user_list[]) {
+
+    // Validate the username
+    if (validate_username(username) == 0) return -1;
+
+    // Check if username is taken
+    if (is_username_taken(username, user_list) == 1) return -2;
+
+    return 0;
+}
 
 int validate_username(const char *username) {
 
@@ -19,7 +31,7 @@ int validate_username(const char *username) {
     return 1;
 }
 
-int is_username_taken(const char *username, const char *user_list[]) {
+int is_username_taken(const char *username, char *user_list[]) {
 
     // Check if the list is empty
     if (user_list == NULL) return 0;

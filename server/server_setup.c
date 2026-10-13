@@ -43,7 +43,7 @@ void start_listening(const int server_socket_fd) {
 }
 
 int accept_client(int server_socket_fd, const struct sockaddr_in addr, const socklen_t *addr_len) {
-    const int fd = accept(server_socket_fd, (struct sockaddr *) &addr, (socklen_t*) &addr_len);
+    const int fd = accept(server_socket_fd, (struct sockaddr *) &addr, (socklen_t*) addr_len);
     if (fd == -1) {
         perror("accept");
         exit(EXIT_FAILURE);

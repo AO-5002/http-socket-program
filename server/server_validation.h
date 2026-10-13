@@ -9,7 +9,8 @@
 
 // Returns 0 for success, and -1 for invalid username.
 int validate_username(const char *username);
-int is_username_taken(const char *username, const char *user_list[]);
+int is_username_taken(const char *username, char *user_list[]);
+int register_new_user(const char *username, char *user_list[]);
 int contains_invalid_characters(char *username);
 
 
