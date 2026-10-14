@@ -19,6 +19,8 @@ add_executable(server
         server/server_validation.h
         common/protocol.c
         common/protocol.h
+        server/server_handlers.c
+        server/server_handlers.h
 )
 
 add_executable(test test/test-cases/test_server_validation.c server/server_validation.c

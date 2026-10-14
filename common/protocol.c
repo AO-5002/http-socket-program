@@ -10,34 +10,36 @@
 #include <sys/socket.h>
 #include "../transport_info.h"
 
-void send_message(const char *message, const int origin_fd, const int dest_fd) {
+void send_message(char *message, const int origin_fd, const int dest_fd) {
     if (origin_fd == dest_fd) return;
-    const ssize_t n = send(dest_fd, message, strlen(message), 0);
-    if (n == -1) {
+    if (send(dest_fd, message, strlen(message), 0) == -1 || send(dest_fd, "\n", 1, 0) == -1) {
         perror("send_message");
         exit(EXIT_FAILURE);
     }
 }
 
-int return_user_fd(const char *target, char *connected_clients[]) {
+int return_user_fd(const char *target, CLIENT connected_clients[]) {
     if (target == NULL) return -1;
     for (int i = 0; i < FD_SETSIZE; i++) {
-        if (connected_clients[i] != NULL && strcmp(connected_clients[i], target) == 0) return i;
+        if (connected_clients[i].username[0] != '\0' && strcmp(connected_clients[i].username, target) == 0) return i;
     }
 
     return -1;
 }
 
 
-void broadcast_message(const char *message, const int origin_fd, char *connected_clients[]) {
+void broadcast_message(char *message, const int origin_fd, CLIENT connected_clients[]) {
+
+    snprintf(message + strlen(message), sizeof message - strlen(message), "\n");
 
     // Client broadcast to all users.
     for (int fd = 0; fd < FD_SETSIZE; fd++) {
-        if (connected_clients[fd] != NULL && fd != origin_fd) {
+        if (connected_clients[fd].username[0] != '\0' && fd != origin_fd) {
             const ssize_t n = send(fd, message, strlen(message), 0);
             if (n == -1) {
-                perror("send");
-                exit(EXIT_FAILURE);
+
+                // Server-Log
+                printf("ERR - %s failed to broadcast a message.\n", connected_clients[origin_fd].username);
             }
         }
     }

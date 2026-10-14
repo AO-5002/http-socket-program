@@ -4,10 +4,11 @@
 
 #include "server_validation.h"
 #include "../transport_info.h"
+#include "../common/protocol.h"
 #include <stdio.h>
 #include <string.h>
 
-int register_new_user(const char *username, char *user_list[]) {
+int register_new_user(const char *username, CLIENT user_list[]) {
 
     // Validate the username
     if (validate_username(username) == 0) return INVALID_USERNAME;
@@ -31,14 +32,14 @@ int validate_username(const char *username) {
     return 1;
 }
 
-int is_username_taken(const char *username, char *user_list[]) {
+int is_username_taken(const char *username, CLIENT user_list[]) {
 
     // Check if the list is empty
     if (user_list == NULL) return 0;
 
     // Check if there is a username match in the list
-    for (size_t i = 0; user_list[i] != NULL; i++) {
-        if (strcmp(username, user_list[i]) == 0) return 1;
+    for (size_t i = 0; user_list[i].username[0] != '\0'; i++) {
+        if (strcmp(username, user_list[i].username) == 0) return 1;
     }
 
     return 0;
