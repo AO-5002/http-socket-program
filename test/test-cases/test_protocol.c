@@ -8,15 +8,23 @@
 
 int compare_msg_protocols(MSG_PROTOCOL a, MSG_PROTOCOL b);
 int test_parsing();
+int test_return_user_fd();
 void test_case(int test);
 
 void protocol_unit_test() {
     printf("Protocol Unit Test\n");
     test_case(test_parsing());
+    test_case(test_return_user_fd());
     printf("\n");
 }
 
 // Test-Cases
+
+int test_return_user_fd() {
+    char *list[5] = { "Bob", "Rod", "Joe", "Jane", "Jill" };
+    return return_user_fd("Rod", list) == 1 &&
+        return_user_fd("Dude", list) == -1;
+}
 
 int test_parsing() {
     const auto text = "foo";

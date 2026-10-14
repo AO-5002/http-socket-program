@@ -12,6 +12,7 @@ typedef struct {
     char *message;
 } MSG_PROTOCOL;
 
+int return_user_fd(const char *target, char *connected_clients[]);
 void send_message(const char *message, int origin_fd, int dest_fd);
 ssize_t receive_message(char* read_buffer, int client_socket_fd);
 void broadcast_message(const char *message, int origin_fd, char *connected_clients[]);

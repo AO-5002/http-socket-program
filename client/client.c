@@ -10,10 +10,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/select.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <sys/errno.h>
 #include "../transport_info.h"
 #include <unistd.h>
 #include "client_setup.h"
@@ -50,25 +50,37 @@ int main() {
         char read_buffer[MAX_MESSAGE_LENGTH];
         char write_buffer[MAX_MESSAGE_LENGTH];
 
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        FD_SET(client_socket_fd, &fds);
+
+        if (select(client_socket_fd + 1, &fds, NULL, NULL, NULL) == -1) {
+            perror("select");
+            exit(EXIT_FAILURE);
+        }
+
         // Sending
 
-        printf("You: ");
-        fgets(write_buffer, MAX_MESSAGE_LENGTH, stdin);
-        write_buffer[strcspn(write_buffer, "\n")] = '\0';
-        send_message(write_buffer, -1, client_socket_fd);
+        if (FD_ISSET(STDIN_FILENO, &fds)) {
+            if (fgets(write_buffer, MAX_MESSAGE_LENGTH, stdin) == NULL) break;
+            write_buffer[strcspn(write_buffer, "\n")] = '\0';
+            send_message(write_buffer, -1, client_socket_fd);
+        }
 
         // Receiving
 
-        const ssize_t n = receive_message(read_buffer, client_socket_fd);
-        if (n > 0) {
-            printf("Server: %s\n", read_buffer);
-        }
-        else {
-            printf("Server disconnected\n");
-            break;
+        if (FD_ISSET(client_socket_fd, &fds)) {
+            const ssize_t n = receive_message(read_buffer, client_socket_fd);
+            if (n > 0) {
+                printf("%s\n", read_buffer);
+            }
+            else {
+                printf("Server disconnected\n");
+                break;
+            }
         }
     }
-
 
     close_client(client_socket_fd);
 }

@@ -17,7 +17,7 @@
 
 void route_message(char *read_buffer, int fd);
 void handle_register(MSG_PROTOCOL msg, int fd);
-void private_message(char *message, int origin_fd);
+void private_message(const char *message, int origin_fd);
 
 char *connected_clients[FD_SETSIZE];
 int client_count = 0;
@@ -98,9 +98,9 @@ void route_message(char *read_buffer, const int fd) {
     const MSG_PROTOCOL msg = parse_message(read_buffer);
     switch (msg.type) {
         case REG: { handle_register(msg, fd); break; }
-        case EXIT: { printf("Client Exit"); exit(EXIT_SUCCESS); }
-        case MESG: { broadcast_message(msg.message, fd, connected_clients); break;}
-        case PMSG: { break;}
+        case EXIT: { printf("User '%s' disconnected.\n", connected_clients[fd]); exit(EXIT_SUCCESS); }
+        case MESG: { broadcast_message(msg.message, fd, connected_clients); break; }
+        case PMSG: { private_message(msg.message, fd); break;}
         default: break;
     }
 }
@@ -110,26 +110,49 @@ void handle_register(const MSG_PROTOCOL msg, const int fd) {
 
         // Add the new user to the client list
 
-        connected_clients[fd] = msg.message; ++client_count;
+        connected_clients[fd] = strdup(msg.message); ++client_count;
 
         // Start building an ACK message for the client
 
         char message[MAX_MESSAGE_LENGTH];
-        snprintf(message, MAX_MESSAGE_LENGTH, "ACK %d", client_count);
+        snprintf(message, MAX_MESSAGE_LENGTH, "ACK %d ", client_count);
 
         // List all the connected users
 
         for (int i = 0; i < FD_SETSIZE; i++) {
             if (connected_clients[i] != NULL) {
-                snprintf(message + strlen(message), sizeof message - strlen(message) , " %s, ", connected_clients[i]);
+                snprintf(message + strlen(message), sizeof message - strlen(message) , "%s ", connected_clients[i]);
             }
         }
 
         send_message(message, server_socket_fd, fd);
+
+        // Server logging
+        printf("User '%s' registered.\n", connected_clients[fd]);
     }
     else send_message("ERR USER_ALREADY_REGISTERED", server_socket_fd, fd);
 }
 
-void private_message(char *message, int origin_fd) {
+void private_message(const char *message, const int origin_fd) {
 
+    // Parse for the destination user (assumes the message is formatted like this ___ ___)
+
+    int i = 0;
+    char destination_user[MAX_USERNAME_LENGTH];
+    while (message[i] != ' ') {
+        destination_user[i] = message[i];
+        i++;
+    }
+    destination_user[i] = '\0';
+    message = message + i + 1;
+
+    // Search for the target-user and return its fd.
+    const int dest_fd = return_user_fd(destination_user, connected_clients);
+
+    // Send the message to target-user
+    send_message(message, origin_fd, dest_fd);
+
+    // Server Logging
+    printf("(%s -> %s) : %s\n", connected_clients[origin_fd], destination_user, message);
 }
+

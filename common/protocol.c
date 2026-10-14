@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include "../transport_info.h"
 
-void send_message(const char *message, int origin_fd, int dest_fd) {
+void send_message(const char *message, const int origin_fd, const int dest_fd) {
     if (origin_fd == dest_fd) return;
     const ssize_t n = send(dest_fd, message, MAX_MESSAGE_LENGTH, 0);
     if (n == -1) {
@@ -19,7 +19,22 @@ void send_message(const char *message, int origin_fd, int dest_fd) {
     }
 }
 
+int return_user_fd(const char *target, char *connected_clients[]) {
+    if (target == NULL) return -1;
+    for (int i = 0; i < FD_SETSIZE; i++) {
+        if (connected_clients[i] != NULL && strcmp(connected_clients[i], target) == 0) return i;
+    }
+
+    return -1;
+}
+
+
 void broadcast_message(const char *message, const int origin_fd, char *connected_clients[]) {
+
+    // Server log
+    printf("(%s -> ALL) : %s\n", connected_clients[origin_fd], message);
+
+    // Client broadcast to all users.
     for (int fd = 0; fd < FD_SETSIZE; fd++) {
         if (connected_clients[fd] != NULL && fd != origin_fd) {
             const ssize_t n = send(fd, message, strlen(message), 0);
@@ -39,7 +54,7 @@ ssize_t receive_message(char* read_buffer, const int fd) {
     }
 
     if (n == 0) {
-        printf("Server disconnected\n");
+        printf("Server disconnected.\n");
         exit(EXIT_SUCCESS);
     }
 

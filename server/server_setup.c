@@ -29,6 +29,7 @@ int create_server_socket() {
 }
 
 void bind_server(const int server_socket_fd, const struct sockaddr_in addr) {
+    printf("Binding...\n");
     if (bind(server_socket_fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
         perror("bind");
         exit(EXIT_FAILURE);
@@ -36,6 +37,7 @@ void bind_server(const int server_socket_fd, const struct sockaddr_in addr) {
 }
 
 void start_listening(const int server_socket_fd) {
+    printf("Listening...\n");
     if (listen(server_socket_fd, BACKLOG) == -1) {
         perror("listen");
         exit(EXIT_FAILURE);
@@ -49,11 +51,12 @@ int accept_client(int server_socket_fd, const struct sockaddr_in addr, const soc
         exit(EXIT_FAILURE);
     }
 
-    printf("Client connected\n");
+    printf("Accept Connection.\n");
     return fd;
 }
 
 void close_server(const int fd) {
+    printf("Closing server...\n");
     int status = close(fd);
     if (status == -1) {
         perror("close");
