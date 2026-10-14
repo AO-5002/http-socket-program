@@ -72,8 +72,9 @@ int main() {
 
         if (FD_ISSET(client_socket_fd, &fds)) {
             const ssize_t n = receive_message(read_buffer, client_socket_fd);
+            read_buffer[n] = '\0';
             if (n > 0) {
-                printf("%s\n", read_buffer);
+                printf("%s", read_buffer);
             }
             else {
                 printf("Server disconnected\n");

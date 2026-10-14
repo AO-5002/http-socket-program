@@ -3,17 +3,17 @@
 //
 
 #include "server_validation.h"
-
+#include "../transport_info.h"
 #include <stdio.h>
 #include <string.h>
 
 int register_new_user(const char *username, char *user_list[]) {
 
     // Validate the username
-    if (validate_username(username) == 0) return -1;
+    if (validate_username(username) == 0) return INVALID_USERNAME;
 
     // Check if username is taken
-    if (is_username_taken(username, user_list) == 1) return -2;
+    if (is_username_taken(username, user_list) == 1) return USERNAME_TAKEN;
 
     return 0;
 }

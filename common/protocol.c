@@ -12,7 +12,7 @@
 
 void send_message(const char *message, const int origin_fd, const int dest_fd) {
     if (origin_fd == dest_fd) return;
-    const ssize_t n = send(dest_fd, message, MAX_MESSAGE_LENGTH, 0);
+    const ssize_t n = send(dest_fd, message, strlen(message), 0);
     if (n == -1) {
         perror("send_message");
         exit(EXIT_FAILURE);
@@ -30,9 +30,6 @@ int return_user_fd(const char *target, char *connected_clients[]) {
 
 
 void broadcast_message(const char *message, const int origin_fd, char *connected_clients[]) {
-
-    // Server log
-    printf("(%s -> ALL) : %s\n", connected_clients[origin_fd], message);
 
     // Client broadcast to all users.
     for (int fd = 0; fd < FD_SETSIZE; fd++) {
@@ -58,6 +55,7 @@ ssize_t receive_message(char* read_buffer, const int fd) {
         exit(EXIT_SUCCESS);
     }
 
+    read_buffer[n] = '\0';
     return n;
 }
 

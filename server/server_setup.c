@@ -51,7 +51,7 @@ int accept_client(int server_socket_fd, const struct sockaddr_in addr, const soc
         exit(EXIT_FAILURE);
     }
 
-    printf("Accept Connection.\n");
+    printf("Connection Accepted.\n");
     return fd;
 }
 
