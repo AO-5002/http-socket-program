@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/_select.h>
+#include <sys/select.h>
 #include "server_handlers.h"
 #include "../common/protocol.h"
 #include "../transport_info.h"
@@ -26,7 +26,7 @@ int main() {
 
     // (Source) Server Address
     struct sockaddr_in addr;
-    constexpr socklen_t addr_len = sizeof(addr);
+    const socklen_t addr_len = sizeof(addr);
     addr.sin_family = DOMAIN_PROTOCOL;
     addr.sin_port = htons(SERVER_PORT);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
