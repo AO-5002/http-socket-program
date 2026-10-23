@@ -9,6 +9,8 @@ add_executable(client
         client/client_setup.h
         common/protocol.c
         common/protocol.h
+        client/client_handlers.c
+        client/client_handlers.h
 )
 
 add_executable(server

@@ -12,12 +12,13 @@
 #define MIN_MESSAGE_LENGTH 1
 #define MAX_MESSAGE_LENGTH 512
 #define MAX_USER_LIST_LENGTH 10
+#define MAX_PROTOCOL_LENGTH 1024
 
-// Error MACROS
+// Error MACROS (codes from the spec's protocol table)
+#define USERNAME_TAKEN 0
 #define INVALID_USERNAME 1
 #define UNKNOWN_USER_PMSG 2
 #define INVALID_MESSAGE 3
-#define USERNAME_TAKEN 4
 
 // Transport Layer MACROS
 #define DOMAIN_PROTOCOL AF_INET

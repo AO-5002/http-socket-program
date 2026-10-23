@@ -8,13 +8,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include "../transport_info.h"
 
-void send_message(char *message, const int origin_fd, const int dest_fd) {
-    if (origin_fd == dest_fd) return;
+void send_message(const char *message, const int origin_fd, const int dest_fd) {
+    if (origin_fd == dest_fd || dest_fd < 0) return;
+
+    // One failed send shouldn't take the whole program down; just log it.
     if (send(dest_fd, message, strlen(message), 0) == -1 || send(dest_fd, "\n", 1, 0) == -1) {
         perror("send_message");
-        exit(EXIT_FAILURE);
     }
 }
 
@@ -28,20 +30,11 @@ int return_user_fd(const char *target, CLIENT connected_clients[]) {
 }
 
 
-void broadcast_message(char *message, const int origin_fd, CLIENT connected_clients[]) {
+void broadcast_message(const char *message, const int origin_fd, CLIENT connected_clients[]) {
 
-    snprintf(message + strlen(message), sizeof message - strlen(message), "\n");
-
-    // Client broadcast to all users.
+    // Send to every registered user except the sender (send_message adds the '\n').
     for (int fd = 0; fd < FD_SETSIZE; fd++) {
-        if (connected_clients[fd].username[0] != '\0' && fd != origin_fd) {
-            const ssize_t n = send(fd, message, strlen(message), 0);
-            if (n == -1) {
-
-                // Server-Log
-                printf("ERR - %s failed to broadcast a message.\n", connected_clients[origin_fd].username);
-            }
-        }
+        if (connected_clients[fd].username[0] != '\0') send_message(message, origin_fd, fd);
     }
 }
 
@@ -80,6 +73,9 @@ MSG_PROTOCOL parse_message(char *message) {
         if (message[i] == ' ' || message[i] == '\0') break;
         type[i] = message[i];
     }
+
+    // Type must be followed by a space or end of line (e.g. "EXITfoo" is not EXIT).
+    if (message[i] != ' ' && message[i] != '\0') return (MSG_PROTOCOL) { .type = UNKOWN, .message = message + i };
 
     message += message[i] == ' ' ? i + 1 : i;
     return (MSG_PROTOCOL) { .type = get_type(type), .message = message };

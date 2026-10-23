@@ -4,128 +4,207 @@
 
 #include "server_handlers.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <sys/select.h>
 
 #include "../transport_info.h"
 #include "../common/protocol.h"
 #include "../server/server_validation.h"
-#include "../server/server_setup.h"
 
 int is_registered(const int fd, CLIENT connected_clients[]) {
     if (connected_clients[fd].username[0] == '\0') return 0;
     return 1;
 }
 
-void route_message(char *read_buffer, const int fd, const int server_socket_fd, CLIENT connected_clients[], const int client_count) {
+void route_message(char *read_buffer, const int fd, CLIENT connected_clients[]) {
 
     // Parse the message of its msg-type and contents.
 
     const MSG_PROTOCOL msg = parse_message(read_buffer);
+    const int registered = is_registered(fd, connected_clients);
 
-    // Handle user-authorization
+    // Handle user-authorization: only REG is allowed before registering.
 
-    if (msg.type == EXIT) { handle_exit(fd, connected_clients); }
-    if (msg.type == REG && is_registered(fd, connected_clients) == 0) { handle_register(msg, fd, server_socket_fd, connected_clients, client_count); }
-    else if (msg.type != REG && is_registered(fd, connected_clients) == 0) { handle_unauthorized_message(fd, server_socket_fd); }
-    else {
+    if (msg.type != REG && msg.type != UNKOWN && !registered) {
 
-        // If the user is authorized, then we process their message.
+        // Server-Log
+        printf("Connection %d - Attempted to send a message without being registered.\n", fd);
+        send_error(fd, INVALID_MESSAGE);
+        return;
+    }
 
-        switch (msg.type) {
-            case MESG: { handle_broadcast_message(msg.message, fd, connected_clients); break; }
-            case PMSG: { handle_private_message(msg.message, fd, connected_clients); break;}
-            default: { handle_default_message(fd, server_socket_fd, connected_clients); break; }
+    // If the user is authorized, then we process their message.
+
+    switch (msg.type) {
+        case REG: {
+            if (registered) send_error(fd, INVALID_MESSAGE);    // Already registered, keep the old name.
+            else handle_register(msg.message, fd, connected_clients);
+            break;
+        }
+        case MESG: { handle_broadcast_message(msg.message, fd, connected_clients); break; }
+        case PMSG: { handle_private_message(msg.message, fd, connected_clients); break; }
+        case EXIT: {
+            if (msg.message[0] != '\0') send_error(fd, INVALID_MESSAGE);   // EXIT takes no fields.
+            else handle_exit(fd, connected_clients);
+            break;
+        }
+        default: {
+
+            // Server log
+            printf("Connection %d - Sent an invalid message: '%s'\n", fd, read_buffer);
+            send_error(fd, INVALID_MESSAGE);
+            break;
         }
     }
 }
 
-void handle_unauthorized_message(const int origin_fd, const int server_socket_fd) {
-
-    // Server-Log
-    printf("Connection %d - Attempted to send a message without being registered.\n", origin_fd);
-
-    // Message to origin_fd
-    const char *message = "Please register by writing 'REG <username>'.\n";
-    send_message(message, server_socket_fd, origin_fd);
+void send_error(const int fd, const int error_code) {
+    char message[16];
+    snprintf(message, sizeof message, "ERR %d", error_code);
+    send_message(message, -1, fd);
 }
 
-void handle_default_message(const int origin_fd, const int server_socket_fd, CLIENT connected_clients[]) {
+void send_ack(const int fd, CLIENT connected_clients[]) {
 
-    // Server log
-    printf("(%s) - Attempted to send an Invalid message type.\n", connected_clients[origin_fd].username);
+    // ACK <#users> <userlist>
 
-    // Private message to origin_fd
-    char message[MAX_MESSAGE_LENGTH];
-    snprintf(message, MAX_MESSAGE_LENGTH, "%s Messages require {REG, MESG, PMSG, EXIT} prefix.\n", connected_clients[origin_fd].username);
-    handle_private_message(message, server_socket_fd, connected_clients);
+    char user_list[FD_SETSIZE * (MAX_USERNAME_LENGTH + 1) + 1] = {0};
+    size_t length = 0;
+    int count = 0;
+
+    for (int i = 0; i < FD_SETSIZE; i++) {
+        if (connected_clients[i].username[0] != '\0') {
+            length += snprintf(user_list + length, sizeof user_list - length, " %s", connected_clients[i].username);
+            count++;
+        }
+    }
+
+    char message[sizeof user_list + 16];
+    snprintf(message, sizeof message, "ACK %d%s", count, user_list);
+    send_message(message, -1, fd);
 }
 
-void handle_broadcast_message(char *message, const int origin_fd, CLIENT connected_clients[]) {
+void handle_broadcast_message(const char *message, const int origin_fd, CLIENT connected_clients[]) {
+
+    // Validate: 1 to 512 characters.
+
+    const size_t length = strlen(message);
+    if (length < MIN_MESSAGE_LENGTH || length > MAX_MESSAGE_LENGTH) {
+        send_error(origin_fd, INVALID_MESSAGE);
+        return;
+    }
+
+    // Build message
+
+    char server_message[MAX_PROTOCOL_LENGTH];
+    snprintf(server_message, sizeof server_message, "MSG %s %s", connected_clients[origin_fd].username, message);
+
     // Server log
     printf("(%s -> ALL) : %s\n", connected_clients[origin_fd].username, message);
-    broadcast_message(message, origin_fd, connected_clients);
+    broadcast_message(server_message, origin_fd, connected_clients);
 }
 
 void handle_exit(const int fd, CLIENT connected_clients[]) {
-    printf("User '%s' disconnected.\n", connected_clients[fd].username);
-    connected_clients[fd] = (CLIENT){0};
-    close(fd);
+
+    // Remove the user first, then ACK with the updated list, then tell everyone else.
+    // Only clear the username: the recv_buffer is still being read by the caller.
+    // The client closes the connection after receiving the ACK.
+
+    char username[MAX_USERNAME_LENGTH + 1];
+    snprintf(username, sizeof username, "%s", connected_clients[fd].username);
+    connected_clients[fd].username[0] = '\0';
+
+    send_ack(fd, connected_clients);
+
+    printf("User '%s' left the chat.\n", username);
+
+    char b_message[MAX_PROTOCOL_LENGTH];
+    snprintf(b_message, sizeof b_message, "MSG SERVER %s has left the chat", username);
+    broadcast_message(b_message, fd, connected_clients);
 }
 
-void handle_register(const MSG_PROTOCOL msg, const int fd, const int server_socket_fd, CLIENT connected_clients[], int client_count) {
-    const int status = register_new_user(msg.message, connected_clients);
-    if (status == 0) {
+void handle_disconnect(const int fd, CLIENT connected_clients[]) {
 
-        // Add the new user to the client list
-        snprintf(connected_clients[fd].username, sizeof connected_clients[fd].username, "%s", msg.message);
-        ++client_count;
+    // Connection closed without an EXIT: remove the user and notify everyone else.
 
-        // Start building an ACK message for the client
+    if (is_registered(fd, connected_clients)) {
+        char username[MAX_USERNAME_LENGTH + 1];
+        snprintf(username, sizeof username, "%s", connected_clients[fd].username);
+        connected_clients[fd] = (CLIENT){0};
 
-        char message[MAX_MESSAGE_LENGTH];
-        snprintf(message, MAX_MESSAGE_LENGTH, "ACK %d ", client_count);
+        printf("User '%s' disconnected.\n", username);
 
-        // List all the connected users
+        char b_message[MAX_PROTOCOL_LENGTH];
+        snprintf(b_message, sizeof b_message, "MSG SERVER %s has left the chat", username);
+        broadcast_message(b_message, fd, connected_clients);
+    }
+    else {
+        connected_clients[fd] = (CLIENT){0};
+        printf("Connection %d disconnected.\n", fd);
+    }
+}
 
-        for (int i = 0; i < FD_SETSIZE; i++) {
-            if (connected_clients[i].username[0] != '\0') {
-                snprintf(message + strlen(message), sizeof message - strlen(message) , "%s ", connected_clients[i].username);
-            }
-        }
-
-        send_message(message, server_socket_fd, fd);
+void handle_register(const char *username, const int fd, CLIENT connected_clients[]) {
+    const int status = register_new_user(username, connected_clients);
+    if (status != -1) {
 
         // Server logging
-        printf("User '%s' registered.\n", connected_clients[fd].username);
+        printf("Connection %d - Registration of '%s' rejected (ERR %d).\n", fd, username, status);
+        send_error(fd, status);
+        return;
     }
-    else if (status == INVALID_USERNAME) {
-        send_message("ERR INVALID_USERNAME", server_socket_fd, fd);
-    }
-    else if (status == USERNAME_TAKEN) {
-        send_message("ERR USERNAME_TAKEN", server_socket_fd, fd);
-    }
+
+    // Add the new user to the client list, then ACK them.
+
+    snprintf(connected_clients[fd].username, sizeof connected_clients[fd].username, "%s", username);
+    send_ack(fd, connected_clients);
+
+    // Server logging
+    printf("User '%s' registered.\n", connected_clients[fd].username);
+
+    // Broadcast message to all other users
+
+    char b_message[MAX_PROTOCOL_LENGTH];
+    snprintf(b_message, sizeof b_message, "MSG SERVER %s has joined the chat", connected_clients[fd].username);
+    broadcast_message(b_message, fd, connected_clients);
 }
 
-void handle_private_message(char *message, const int origin_fd, CLIENT connected_clients[]) {
+void handle_private_message(const char *message, const int origin_fd, CLIENT connected_clients[]) {
 
-    // Parse for the destination user (assumes the message is formatted like this ___ ___)
+    // Format: <user> <message>
 
-    int i = 0;
-    char destination_user[MAX_USERNAME_LENGTH];
-    while (message[i] != ' ') {
-        destination_user[i] = message[i];
-        i++;
+    const char *space = strchr(message, ' ');
+    if (space == NULL || space == message || space[1] == '\0' || strlen(space + 1) > MAX_MESSAGE_LENGTH) {
+        send_error(origin_fd, INVALID_MESSAGE);
+        return;
     }
-    destination_user[i] = '\0';
-    message = message + i + 1;
+
+    // Names longer than the max can't belong to anyone.
+
+    const size_t name_length = space - message;
+    if (name_length > MAX_USERNAME_LENGTH) {
+        send_error(origin_fd, UNKNOWN_USER_PMSG);
+        return;
+    }
+
+    char destination_user[MAX_USERNAME_LENGTH + 1];
+    memcpy(destination_user, message, name_length);
+    destination_user[name_length] = '\0';
+    message = space + 1;
 
     // Search for the target-user and return its fd.
+
     const int dest_fd = return_user_fd(destination_user, connected_clients);
+    if (dest_fd == -1) {
+        send_error(origin_fd, UNKNOWN_USER_PMSG);
+        return;
+    }
 
     // Send the message to target-user
-    send_message(message, origin_fd, dest_fd);
+
+    char complete_message[MAX_PROTOCOL_LENGTH];
+    snprintf(complete_message, sizeof complete_message, "MSG %s %s", connected_clients[origin_fd].username, message);
+    send_message(complete_message, -1, dest_fd);
 
     // Server Logging
     printf("(%s -> %s) : %s\n", connected_clients[origin_fd].username, destination_user, message);
