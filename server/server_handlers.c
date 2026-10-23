@@ -63,9 +63,15 @@ void handle_default_message(const int origin_fd, const int server_socket_fd, CLI
 }
 
 void handle_broadcast_message(char *message, const int origin_fd, CLIENT connected_clients[]) {
+
+    // Build message
+
+    char server_message[MAX_MESSAGE_LENGTH];
+    snprintf(server_message, MAX_MESSAGE_LENGTH, "MSG %s %s", connected_clients[origin_fd].username, message);
+
     // Server log
     printf("(%s -> ALL) : %s\n", connected_clients[origin_fd].username, message);
-    broadcast_message(message, origin_fd, connected_clients);
+    broadcast_message(server_message, origin_fd, connected_clients);
 }
 
 void handle_exit(const int fd, CLIENT connected_clients[]) {
@@ -99,6 +105,12 @@ void handle_register(const MSG_PROTOCOL msg, const int fd, const int server_sock
 
         // Server logging
         printf("User '%s' registered.\n", connected_clients[fd].username);
+
+        // Broadcast message to all users
+
+        char b_message[MAX_MESSAGE_LENGTH];
+        snprintf(b_message, MAX_MESSAGE_LENGTH, "%s connected to the chat-room.", connected_clients[fd].username);
+        broadcast_message(b_message, fd, connected_clients);
     }
     else if (status == INVALID_USERNAME) {
         send_message("ERR INVALID_USERNAME", server_socket_fd, fd);
@@ -125,7 +137,9 @@ void handle_private_message(char *message, const int origin_fd, CLIENT connected
     const int dest_fd = return_user_fd(destination_user, connected_clients);
 
     // Send the message to target-user
-    send_message(message, origin_fd, dest_fd);
+    char complete_message[MAX_MESSAGE_LENGTH];
+    snprintf(complete_message, MAX_MESSAGE_LENGTH, "PMSG %s %s", connected_clients[origin_fd].username, message);
+    send_message(complete_message, origin_fd, dest_fd);
 
     // Server Logging
     printf("(%s -> %s) : %s\n", connected_clients[origin_fd].username, destination_user, message);
