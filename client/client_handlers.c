@@ -79,6 +79,7 @@ int handle_server_line(const char *line, const int exiting) {
             return 1;
         }
     }
+
     return 0;
 }
 
@@ -113,13 +114,17 @@ void print_users(void) {
 
 // One recv into the buffer; exits if the server is gone.
 void fill_buffer(const int fd) {
-    if (bytes_received >= sizeof recv_buffer - 1) bytes_received = 0;    // Line too long, drop it.
 
+    // If line too long, drop it
+    if (bytes_received >= sizeof recv_buffer - 1) bytes_received = 0;
+
+    // Add n-bytes and add it to the buffer.
     const ssize_t n = recv(fd, recv_buffer + bytes_received, sizeof recv_buffer - bytes_received - 1, 0);
     if (n <= 0) {
         printf("Server disconnected.\n");
         exit(n == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
     }
+
     bytes_received += n;
     recv_buffer[bytes_received] = '\0';
 }
@@ -159,8 +164,8 @@ void read_input(const char *prompt, char *buffer, const size_t size) {
 
 void prompt_user(char *username, char *port, char *server_hostname) {
 
-    printf("Welcome to the HTTP-Socket Client!\n");
-    read_input("Please enter the server-hostname: ", server_hostname, INPUT_LENGTH);
+    printf("Welcome to TCP-Chatroom.\n");
+    read_input("Enter the server-hostname: ", server_hostname, INPUT_LENGTH);
     read_input("Enter the server-port: ", port, INPUT_LENGTH);
     read_input("Enter your username: ", username, INPUT_LENGTH);
 }

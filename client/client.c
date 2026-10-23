@@ -63,13 +63,11 @@ int main() {
     printf("Commands: 'MESG <message>' to broadcast, 'PMSG <user> <message>' to message privately, 'LIST' for users, 'EXIT' to leave.\n");
 
     // Chatroom
-
     int exiting = 0;
     int done = 0;
 
     // Anything that arrived together with the ACK.
     while (!done && pop_line(line, sizeof line)) done = handle_server_line(line, exiting);
-
     while (!done) {
         fd_set fds;
         FD_ZERO(&fds);
@@ -87,13 +85,13 @@ int main() {
             char input[MAX_PROTOCOL_LENGTH];
             if (fgets(input, sizeof input, stdin) == NULL) {
 
-                // Ctrl-D: leave the chat properly.
+                // EXIT to leave the chat
                 send_message("EXIT", -1, client_socket_fd);
                 exiting = 1;
             }
             else if (strchr(input, '\n') == NULL && !feof(stdin)) {
 
-                // Too long: drop the rest of the line.
+                // If message too long, drop it.
                 int c;
                 while ((c = getchar()) != '\n' && c != EOF) {}
                 printf("Message too long (max %d characters).\n", MAX_MESSAGE_LENGTH);

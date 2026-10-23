@@ -11,6 +11,7 @@
 #include <sys/select.h>
 #include "../transport_info.h"
 
+// Generic function for sending messages
 void send_message(const char *message, const int origin_fd, const int dest_fd) {
     if (origin_fd == dest_fd || dest_fd < 0) return;
 
@@ -20,6 +21,7 @@ void send_message(const char *message, const int origin_fd, const int dest_fd) {
     }
 }
 
+// Return fd based on username
 int return_user_fd(const char *target, CLIENT connected_clients[]) {
     if (target == NULL) return -1;
     for (int i = 0; i < FD_SETSIZE; i++) {
@@ -29,7 +31,7 @@ int return_user_fd(const char *target, CLIENT connected_clients[]) {
     return -1;
 }
 
-
+// Generic function for sending global-messages
 void broadcast_message(const char *message, const int origin_fd, CLIENT connected_clients[]) {
 
     // Send to every registered user except the sender (send_message adds the '\n').
@@ -38,6 +40,7 @@ void broadcast_message(const char *message, const int origin_fd, CLIENT connecte
     }
 }
 
+// Generic function for receiving messages
 ssize_t receive_message(char* read_buffer, const int fd) {
     const ssize_t n = recv(fd, read_buffer, MAX_MESSAGE_LENGTH - 1, 0);
     if (n < 0) {
@@ -64,6 +67,7 @@ MSG_TYPE get_type(const char *message) {
     return UNKOWN;
 }
 
+// Parse message and identify message-type & message contents
 MSG_PROTOCOL parse_message(char *message) {
 
     // Parse the type and content from the message.
@@ -74,7 +78,7 @@ MSG_PROTOCOL parse_message(char *message) {
         type[i] = message[i];
     }
 
-    // Type must be followed by a space or end of line (e.g. "EXITfoo" is not EXIT).
+    // Type must be followed by a space or \0.
     if (message[i] != ' ' && message[i] != '\0') return (MSG_PROTOCOL) { .type = UNKOWN, .message = message + i };
 
     message += message[i] == ' ' ? i + 1 : i;
